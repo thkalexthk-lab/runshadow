@@ -1,85 +1,264 @@
 local Player = {}
+
 Player.__index = Player
 
+
+--------------------------------
+-- CREAR JUGADOR
+--------------------------------
+
 function Player.new(x, y)
-    local self = setmetatable({
-        width = 32,
-        height = 48,
-        speed = 300,
-        gravity = 1500,
-        jumpSpeed = 650
-    }, Player)
-    self:reset(x, y)
-    return self
-end
 
-function Player:reset(x, y)
-    self.x, self.y = x, y
+    local self =
+        setmetatable({}, Player)
+
+    self.x = x
+    self.y = y
+
+    self.width = 40
+    self.height = 60
+
+    self.vx = 0
     self.vy = 0
-    self.grounded = false
+
+    self.speed = 300
+
+    self.jumpForce = -600
+
+    self.gravity = 1500
+
+    self.onGround = false
+
+    return self
+
 end
 
-local function overlaps(a, b)
-    return a.x < b.x + b.width and a.x + a.width > b.x
-        and a.y < b.y + b.height and a.y + a.height > b.y
-end
 
-function Player:collides(other)
-    return overlaps(self, other)
-end
+--------------------------------
+-- ACTUALIZAR JUGADOR
+--------------------------------
 
 function Player:update(dt, platforms)
+
+    --------------------------------
+    -- MOVIMIENTO HORIZONTAL
+    --------------------------------
+
     local direction = 0
-    if love.keyboard.isDown("a", "left") then direction = direction - 1 end
-    if love.keyboard.isDown("d", "right") then direction = direction + 1 end
 
-    -- Pasos pequeños evitan atravesar plataformas cuando baja la tasa de cuadros.
-    local remaining = math.min(math.max(dt, 0), 0.25)
-    while remaining > 1e-9 do
-        local step = math.min(remaining, 1 / 240)
-        remaining = remaining - step
 
-        local dx = direction * self.speed * step
-        self.x = self.x + dx
-        for _, platform in ipairs(platforms) do
-            if overlaps(self, platform) then
-                if dx > 0 then
-                    self.x = platform.x - self.width
-                elseif dx < 0 then
-                    self.x = platform.x + platform.width
-                end
-            end
-        end
+    if love.keyboard.isDown(
+        "a",
+        "left"
+    ) then
 
-        self.vy = self.vy + self.gravity * step
-        local dy = self.vy * step
-        self.y = self.y + dy
-        self.grounded = false
-        for _, platform in ipairs(platforms) do
-            if overlaps(self, platform) then
-                if dy > 0 then
-                    self.y = platform.y - self.height
-                    self.grounded = true
-                    self.vy = 0
-                elseif dy < 0 then
-                    self.y = platform.y + platform.height
-                    self.vy = 0
-                end
-            end
-        end
+        direction =
+            direction - 1
+
     end
+
+
+    if love.keyboard.isDown(
+        "d",
+        "right"
+    ) then
+
+        direction =
+            direction + 1
+
+    end
+
+
+    self.vx =
+        direction * self.speed
+
+
+    self.x =
+        self.x +
+        self.vx * dt
+
+
+    --------------------------------
+    -- COLISIONES HORIZONTALES
+    --------------------------------
+
+    for _, platform in ipairs(platforms) do
+
+        if self:collides(platform) then
+
+            if self.vx > 0 then
+
+                self.x =
+                    platform.x -
+                    self.width
+
+            elseif self.vx < 0 then
+
+                self.x =
+                    platform.x +
+                    platform.width
+
+            end
+
+        end
+
+    end
+
+
+    --------------------------------
+    -- GRAVEDAD
+    --------------------------------
+
+    self.vy =
+        self.vy +
+        self.gravity * dt
+
+
+    self.y =
+        self.y +
+        self.vy * dt
+
+
+    --------------------------------
+    -- COLISIONES VERTICALES
+    --------------------------------
+
+    self.onGround = false
+
+
+    for _, platform in ipairs(platforms) do
+
+        if self:collides(platform) then
+
+            --------------------------------
+            -- CAYENDO
+            --------------------------------
+
+            if self.vy > 0 then
+
+                self.y =
+                    platform.y -
+                    self.height
+
+                self.vy = 0
+
+                self.onGround = true
+
+
+            --------------------------------
+            -- GOLPE DESDE ABAJO
+            --------------------------------
+
+            elseif self.vy < 0 then
+
+                self.y =
+                    platform.y +
+                    platform.height
+
+                self.vy = 0
+
+            end
+
+        end
+
+    end
+
 end
+
+
+--------------------------------
+-- SALTAR
+--------------------------------
 
 function Player:jump()
-    if self.grounded then
-        self.vy = -self.jumpSpeed
-        self.grounded = false
+
+    if self.onGround then
+
+        self.vy =
+            self.jumpForce
+
+        self.onGround =
+            false
+
     end
+
 end
 
-function Player:draw()
-    love.graphics.setColor(0.75, 0.9, 1)
-    love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
+
+--------------------------------
+-- COLISIÓN
+--------------------------------
+
+function Player:collides(object)
+
+    return
+        self.x <
+        object.x + object.width
+
+        and
+
+        self.x + self.width >
+        object.x
+
+        and
+
+        self.y <
+        object.y + object.height
+
+        and
+
+        self.y + self.height >
+        object.y
+
 end
+
+
+--------------------------------
+-- DIBUJAR JUGADOR
+--------------------------------
+
+function Player:draw()
+
+    love.graphics.setColor(
+        0.2,
+        0.7,
+        1,
+        1
+    )
+
+    love.graphics.rectangle(
+        "fill",
+        self.x,
+        self.y,
+        self.width,
+        self.height
+    )
+
+    love.graphics.setColor(
+        1,
+        1,
+        1,
+        1
+    )
+
+end
+
+
+--------------------------------
+-- REINICIAR JUGADOR
+--------------------------------
+
+function Player:reset(x, y)
+
+    self.x = x
+    self.y = y
+
+    self.vx = 0
+    self.vy = 0
+
+    self.onGround = false
+
+end
+
 
 return Player

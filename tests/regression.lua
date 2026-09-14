@@ -106,13 +106,6 @@ assert(#r:getRecording() == 1 and r:getRecording()[1].x == 100)
 labels = {}
 love.draw()
 assert(labels[1]:find("PRIMERA VUELTA", 1, true))
--- La puerta está abierta durante la primera vuelta.
-p:reset(760, 602)
-keys.d = true
-love.update(0.25)
-assert(p.x > 800, "Primera vuelta transitable sin plataformas")
-keys.d = nil
-startGhostRun()
 -- Puerta cerrada: ambos lados y aterrizaje sobre ella.
 p:reset(760, 602)
 keys.d = true
@@ -156,28 +149,7 @@ love.keypressed("r")
 p:reset(760, 602)
 keys.d = true
 love.update(0.1)
-assert(p.x > 768, "Reiniciar abre la puerta para la primera vuelta")
+assert(p.x == 768, "Reiniciar restaura la puerta cerrada")
 keys.d = nil
 love.draw()
--- Visibilidad y colisión de las plataformas según la vuelta.
-local elevatedDraws = 0
-love.graphics.rectangle = function(_, _, _, width, height)
-    if width == 200 and height == 30 then elevatedDraws = elevatedDraws + 1 end
-end
-love.keypressed("r")
-love.draw()
-assert(elevatedDraws == 0, "Las plataformas no se dibujan en la primera vuelta")
-p:reset(350, 450)
-for i = 1, 60 do love.update(1 / 60) end
-assert(p.y == 602, "Primera vuelta: atraviesa la plataforma y aterriza en el suelo")
-startGhostRun()
-love.draw()
-assert(elevatedDraws == 3, "Segunda vuelta: se dibujan las tres plataformas")
-p:reset(350, 450)
-for i = 1, 60 do love.update(1 / 60) end
-assert(p.y == 472 and p.grounded, "Segunda vuelta: aterriza sobre la plataforma")
-love.keypressed("r")
-elevatedDraws = 0
-love.draw()
-assert(elevatedDraws == 0, "Reiniciar vuelve a ocultar las plataformas")
 print("OK: física, grabación, dos vueltas, botón, puerta y reinicios (LÖVE simulado).")

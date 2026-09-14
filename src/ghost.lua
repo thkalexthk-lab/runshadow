@@ -2,73 +2,103 @@ local Ghost = {}
 
 Ghost.__index = Ghost
 
+
+--------------------------------
+-- CREAR FANTASMA
+--------------------------------
+
 function Ghost.new(recording)
 
-    local self = setmetatable({}, Ghost)
+    local self =
+        setmetatable({}, Ghost)
 
-    self.recording = recording
+    self.recording =
+        recording
 
     self.time = 0
+
     self.frame = 1
+
 
     self.x = 0
     self.y = 0
 
-    self.width = 32
-    self.height = 48
+
+    self.width = 40
+    self.height = 60
+
 
     if recording[1] then
-        self.x = recording[1].x
-        self.y = recording[1].y
-        self.width = recording[1].width or self.width
-        self.height = recording[1].height or self.height
+
+        self.x =
+            recording[1].x
+
+        self.y =
+            recording[1].y
+
     end
+
 
     return self
 
 end
 
+
+--------------------------------
+-- ACTUALIZAR FANTASMA
+--------------------------------
+
 function Ghost:update(dt)
 
-    self.time = self.time + math.max(dt, 0)
+    self.time =
+        self.time + dt
+
 
     while
         self.recording[self.frame + 1]
+
         and
-        self.recording[self.frame + 1].time <= self.time
+
+        self.recording[self.frame + 1].time
+        <= self.time
     do
 
-        self.frame = self.frame + 1
+        self.frame =
+            self.frame + 1
 
     end
 
-    local data = self.recording[self.frame]
+
+    local data =
+        self.recording[self.frame]
+
 
     if data then
 
-        self.x = data.x
-        self.y = data.y
-        local nextData = self.recording[self.frame + 1]
-        if nextData and nextData.time > data.time then
-            local alpha = math.max(0, math.min(1,
-                (self.time - data.time) / (nextData.time - data.time)))
-            self.x = data.x + (nextData.x - data.x) * alpha
-            self.y = data.y + (nextData.y - data.y) * alpha
-        end
+        self.x =
+            data.x
+
+        self.y =
+            data.y
 
     end
 
 end
 
+
+--------------------------------
+-- DIBUJAR FANTASMA
+--------------------------------
+
 function Ghost:draw()
-    if not self.recording[1] then return end
 
     love.graphics.setColor(
         0.3,
         0.8,
         1,
-        0.45
+        0.40
     )
+
 
     love.graphics.rectangle(
         "fill",
@@ -78,8 +108,15 @@ function Ghost:draw()
         self.height
     )
 
-    love.graphics.setColor(1, 1, 1, 1)
+
+    love.graphics.setColor(
+        1,
+        1,
+        1,
+        1
+    )
 
 end
+
 
 return Ghost
