@@ -1,31 +1,28 @@
+local Sprite = require("src.sprite")
 local Ghost = {}
 
 Ghost.__index = Ghost
 
-
---------------------------------
--- CREAR FANTASMA
---------------------------------
 
 function Ghost.new(recording)
 
     local self =
         setmetatable({}, Ghost)
 
-    self.recording =
-        recording
+    self.recording = recording
 
     self.time = 0
-
     self.frame = 1
-
 
     self.x = 0
     self.y = 0
 
+    self.width = recording[1] and recording[1].width or 40
+    self.height = recording[1] and recording[1].height or 60
 
-    self.width = 40
-    self.height = 60
+    self.direction = 1
+    self.animation = "idle"
+    self.spriteFrame = 1
 
 
     if recording[1] then
@@ -36,6 +33,14 @@ function Ghost.new(recording)
         self.y =
             recording[1].y
 
+        self.direction =
+            recording[1].direction or 1
+
+        self.animation =
+            recording[1].animation or "idle"
+
+        self.spriteFrame = recording[1].spriteFrame or Sprite.frame(self.animation, 0)
+
     end
 
 
@@ -43,10 +48,6 @@ function Ghost.new(recording)
 
 end
 
-
---------------------------------
--- ACTUALIZAR FANTASMA
---------------------------------
 
 function Ghost:update(dt)
 
@@ -81,42 +82,29 @@ function Ghost:update(dt)
         self.y =
             data.y
 
+        local nextData = self.recording[self.frame + 1]
+        if nextData and nextData.time > data.time then
+            local alpha = math.max(0, math.min(1,
+                (self.time - data.time) / (nextData.time - data.time)))
+            self.x = data.x + (nextData.x - data.x) * alpha
+            self.y = data.y + (nextData.y - data.y) * alpha
+        end
+
+        self.direction =
+            data.direction or 1
+
+        self.animation =
+            data.animation or "idle"
+
+        self.spriteFrame = data.spriteFrame or Sprite.frame(self.animation, 0)
+
     end
 
 end
 
 
---------------------------------
--- DIBUJAR FANTASMA
---------------------------------
-
 function Ghost:draw()
-
-    love.graphics.setColor(
-        0.3,
-        0.8,
-        1,
-        0.40
-    )
-
-
-    love.graphics.rectangle(
-        "fill",
-        self.x,
-        self.y,
-        self.width,
-        self.height
-    )
-
-
-    love.graphics.setColor(
-        1,
-        1,
-        1,
-        1
-    )
-
+    Sprite.draw(self, true)
 end
-
 
 return Ghost

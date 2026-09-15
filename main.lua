@@ -2,19 +2,42 @@ local Player = require("src.player")
 local Recorder = require("src.recorder")
 local Ghost = require("src.ghost")
 
+
+--------------------------------
+-- NIVELES
+--------------------------------
+
+local levels = {
+    require("levels.level1"),
+    (require("levels.level2"))
+}
+
+local currentLevel = 1
+local level
+
+
+--------------------------------
+-- OBJETOS DEL JUEGO
+--------------------------------
+
 local player
 local recorder
 local ghost
 
 local platforms
-local goal
 local button
 local door
+local goal
 
 local gameState
 
-local START_X = 100
-local START_Y = 500
+
+--------------------------------
+-- TRANSICIÓN
+--------------------------------
+
+local transitionTimer = 0
+local transitionDuration = 3
 
 
 --------------------------------
@@ -34,6 +57,59 @@ local function checkCollision(
         y1 < y2 + h2
         and
         y1 + h1 > y2
+
+end
+
+
+--------------------------------
+-- CARGAR NIVEL
+--------------------------------
+
+local function loadLevel(levelNumber)
+
+    currentLevel = levelNumber
+
+    level = levels[currentLevel]()
+
+    platforms = level.platforms
+    button = level.button
+    door = level.door
+    goal = level.goal
+
+    ghost = nil
+
+    recorder:reset()
+
+    player:reset(
+        level.startX,
+        level.startY
+    )
+
+    recorder:update(0, player)
+    button.pressed = false
+    door.open = true
+
+    gameState = "first_run"
+
+    transitionTimer = 0
+
+end
+
+
+--------------------------------
+-- INICIAR TRANSICIÓN
+--------------------------------
+
+local function startTransition()
+
+    gameState = "transition"
+
+    transitionTimer =
+        transitionDuration
+
+    player.vx = 0
+    player.vy = 0
+
 end
 
 
@@ -47,11 +123,14 @@ local function startGhostRun()
         recorder:getRecording()
     )
 
+    button.pressed = false
+    door.open = false
+
     gameState = "ghost_run"
 
     player:reset(
-        START_X,
-        START_Y
+        level.startX,
+        level.startY
     )
 
 end
@@ -63,37 +142,50 @@ end
 
 local function restartGhostRun()
 
+    button.pressed = false
+    door.open = false
+
     ghost = Ghost.new(
         recorder:getRecording()
     )
 
     player:reset(
-        START_X,
-        START_Y
+        level.startX,
+        level.startY
     )
 
 end
 
 
 --------------------------------
--- REINICIAR TODO EL NIVEL
+-- REINICIAR NIVEL
 --------------------------------
 
-local function restartGame()
+local function restartLevel()
 
-    gameState = "first_run"
+    loadLevel(currentLevel)
 
-    ghost = nil
+end
 
-    recorder:reset()
 
-    player:reset(
-        START_X,
-        START_Y
-    )
+--------------------------------
+-- SIGUIENTE NIVEL
+--------------------------------
 
-    button.pressed = false
-    door.open = true
+local function nextLevel()
+
+    if currentLevel < #levels then
+
+        loadLevel(
+            currentLevel + 1
+        )
+
+    else
+
+        gameState =
+            "game_complete"
+
+    end
 
 end
 
@@ -128,8 +220,8 @@ function love.load()
     --------------------------------
 
     player = Player.new(
-        START_X,
-        START_Y
+        100,
+        500
     )
 
 
@@ -137,85 +229,15 @@ function love.load()
     -- GRABADOR
     --------------------------------
 
-    recorder = Recorder.new()
+    recorder =
+        Recorder.new()
 
 
     --------------------------------
-    -- ESTADO DEL JUEGO
+    -- PRIMER NIVEL
     --------------------------------
 
-    gameState = "first_run"
-
-
-    --------------------------------
-    -- PLATAFORMAS
-    --------------------------------
-
-    platforms = {
-
-        -- Suelo
-        {
-            x = 0,
-            y = 650,
-            width = 1280,
-            height = 70
-        },
-
-        -- Plataforma izquierda
-        {
-            x = 250,
-            y = 540,
-            width = 150,
-            height = 30
-        },
-
-        -- Plataforma derecha
-        {
-            x = 900,
-            y = 520,
-            width = 150,
-            height = 30
-        }
-
-    }
-
-
-    --------------------------------
-    -- BOTÓN
-    --------------------------------
-
-    button = {
-        x = 500,
-        y = 630,
-        width = 80,
-        height = 20,
-        pressed = false
-    }
-
-
-    --------------------------------
-    -- PUERTA
-    --------------------------------
-
-    door = {
-        x = 750,
-        y = 500,
-        width = 50,
-        height = 150,
-        open = true
-    }
-
-
-    --------------------------------
-    -- META
-    --------------------------------
-
-    goal = {
-        x = 1150,
-        y = 570,
-        width = 50,
-        height = 80
-    }
+    loadLevel(1)
 
 end
 
@@ -226,35 +248,33 @@ end
 
 function love.update(dt)
 
+    dt = math.min(math.max(dt, 0), 0.25)
+
     --------------------------------
-    -- NIVEL COMPLETADO
+    -- JUEGO TERMINADO
     --------------------------------
 
-    if gameState == "completed" then
+    if gameState == "game_complete" then
         return
     end
 
 
     --------------------------------
-    -- ACTUALIZAR JUGADOR
+    -- TRANSICIÓN
     --------------------------------
 
-    player:update(
-        dt,
-        platforms
-    )
+    if gameState == "transition" then
 
+        transitionTimer =
+            transitionTimer - dt
 
-    --------------------------------
-    -- PRIMERA VUELTA
-    --------------------------------
+        if transitionTimer <= 0 then
 
-    if gameState == "first_run" then
+            startGhostRun()
 
-        recorder:update(
-            dt,
-            player
-        )
+        end
+
+        return
 
     end
 
@@ -266,7 +286,9 @@ function love.update(dt)
     if gameState == "ghost_run" then
 
         if ghost then
+
             ghost:update(dt)
+
         end
 
     end
@@ -277,6 +299,7 @@ function love.update(dt)
     --------------------------------
 
     button.pressed = false
+
 
     if gameState == "ghost_run" and ghost then
 
@@ -305,65 +328,54 @@ function love.update(dt)
 
     if gameState == "first_run" then
 
-        -- Primera vuelta:
-        -- puerta siempre abierta
         door.open = true
 
     elseif gameState == "ghost_run" then
 
-        -- Segunda vuelta:
-        -- solamente el fantasma
-        -- puede abrirla
-        door.open = button.pressed
+        door.open =
+            button.pressed
 
     end
 
 
-    --------------------------------
-    -- COLISIÓN JUGADOR / PUERTA
-    --------------------------------
+    -- Esperar a que el jugador salga antes de cerrar la puerta.
+    if not door.open and player:collides(door) then
+        door.open = true
+    end
 
+    local solids = platforms
     if not door.open then
-
-        if player:collides(door) then
-
-            if player.vx > 0 then
-
-                player.x =
-                    door.x - player.width
-
-            elseif player.vx < 0 then
-
-                player.x =
-                    door.x + door.width
-
-            end
-
+        solids = {}
+        for i, platform in ipairs(platforms) do
+            solids[i] = platform
         end
+        solids[#solids + 1] = door
+    end
+    player:update(dt, solids)
 
+    if gameState == "first_run" then
+        recorder:update(dt, player)
     end
 
-
     --------------------------------
-    -- SI EL JUGADOR CAE
+    -- CAÍDA DEL MAPA
     --------------------------------
 
     if player.y > 900 then
 
         if gameState == "first_run" then
 
-            -- Reiniciamos también
-            -- la grabación
             recorder:reset()
 
             player:reset(
-                START_X,
-                START_Y
+                level.startX,
+                level.startY
             )
+
+            recorder:update(0, player)
 
         elseif gameState == "ghost_run" then
 
-            -- Reinicia jugador y fantasma
             restartGhostRun()
 
         end
@@ -379,13 +391,22 @@ function love.update(dt)
 
     if player:collides(goal) then
 
+        --------------------------------
+        -- TERMINA PRIMERA VUELTA
+        --------------------------------
+
         if gameState == "first_run" then
 
-            startGhostRun()
+            startTransition()
+
+
+        --------------------------------
+        -- TERMINA SEGUNDA VUELTA
+        --------------------------------
 
         elseif gameState == "ghost_run" then
 
-            gameState = "completed"
+            nextLevel()
 
         end
 
@@ -532,7 +553,11 @@ function love.draw()
     -- JUGADOR
     --------------------------------
 
-    player:draw()
+    if gameState ~= "transition" then
+
+        player:draw()
+
+    end
 
 
     --------------------------------
@@ -546,26 +571,15 @@ function love.draw()
         1
     )
 
-    if gameState == "first_run" then
+
+    --------------------------------
+    -- NOMBRE DEL NIVEL
+    --------------------------------
+
+    if gameState ~= "game_complete" then
 
         love.graphics.print(
-            "PRIMERA VUELTA - Llega a la meta",
-            20,
-            20
-        )
-
-    elseif gameState == "ghost_run" then
-
-        love.graphics.print(
-            "SEGUNDA VUELTA - Usa a tu fantasma",
-            20,
-            20
-        )
-
-    elseif gameState == "completed" then
-
-        love.graphics.print(
-            "¡NIVEL COMPLETADO!",
+            level.name,
             20,
             20
         )
@@ -573,15 +587,151 @@ function love.draw()
     end
 
 
-    love.graphics.print(
-        "A/D = mover | ESPACIO = saltar | R = reiniciar",
-        20,
-        50
-    )
+    --------------------------------
+    -- PRIMERA VUELTA
+    --------------------------------
+
+    if gameState == "first_run" then
+
+        love.graphics.print(
+            "PRIMERA VUELTA - Llega a la meta",
+            20,
+            50
+        )
 
 
     --------------------------------
-    -- INFORMACIÓN DE LA PUERTA
+    -- SEGUNDA VUELTA
+    --------------------------------
+
+    elseif gameState == "ghost_run" then
+
+        love.graphics.print(
+            "SEGUNDA VUELTA - Usa a tu fantasma",
+            20,
+            50
+        )
+
+
+    --------------------------------
+    -- TRANSICIÓN
+    --------------------------------
+
+    elseif gameState == "transition" then
+
+        --------------------------------
+        -- OSCURECER PANTALLA
+        --------------------------------
+
+        love.graphics.setColor(
+            0,
+            0,
+            0,
+            0.80
+        )
+
+        love.graphics.rectangle(
+            "fill",
+            0,
+            0,
+            1280,
+            720
+        )
+
+
+        --------------------------------
+        -- TEXTO
+        --------------------------------
+
+        love.graphics.setColor(
+            1,
+            1,
+            1,
+            1
+        )
+
+        love.graphics.printf(
+            "PRIMERA VUELTA COMPLETADA",
+            0,
+            270,
+            1280,
+            "center"
+        )
+
+
+        --------------------------------
+        -- CUENTA REGRESIVA
+        --------------------------------
+
+        local countdown =
+            math.ceil(
+                transitionTimer
+            )
+
+        love.graphics.printf(
+            tostring(countdown),
+            0,
+            320,
+            1280,
+            "center"
+        )
+
+
+        love.graphics.printf(
+            "REPETICIÓN 01",
+            0,
+            380,
+            1280,
+            "center"
+        )
+
+
+    --------------------------------
+    -- JUEGO COMPLETO
+    --------------------------------
+
+    elseif gameState == "game_complete" then
+
+        love.graphics.printf(
+            "¡HAS COMPLETADO TODOS LOS NIVELES!",
+            0,
+            300,
+            1280,
+            "center"
+        )
+
+        love.graphics.printf(
+            "Presiona R para volver al Nivel 1",
+            0,
+            340,
+            1280,
+            "center"
+        )
+
+    end
+
+
+    --------------------------------
+    -- CONTROLES
+    --------------------------------
+
+    if
+        gameState ~= "game_complete"
+        and
+        gameState ~= "transition"
+    then
+
+        love.graphics.print(
+            "A/D = mover | ESPACIO = saltar | R = reiniciar nivel",
+            20,
+            80
+        )
+
+    end
+
+
+    --------------------------------
+    -- ESTADO DE PUERTA
     --------------------------------
 
     if gameState == "ghost_run" then
@@ -591,7 +741,7 @@ function love.draw()
             love.graphics.print(
                 "PUERTA: ABIERTA",
                 20,
-                80
+                110
             )
 
         else
@@ -599,7 +749,7 @@ function love.draw()
             love.graphics.print(
                 "PUERTA: CERRADA",
                 20,
-                80
+                110
             )
 
         end
@@ -619,7 +769,11 @@ function love.keypressed(key)
     -- SALTO
     --------------------------------
 
-    if gameState ~= "completed" then
+    if
+        gameState ~= "game_complete"
+        and
+        gameState ~= "transition"
+    then
 
         if
             key == "space"
@@ -640,7 +794,15 @@ function love.keypressed(key)
 
     if key == "r" then
 
-        restartGame()
+        if gameState == "game_complete" then
+
+            loadLevel(1)
+
+        else
+
+            restartLevel()
+
+        end
 
     end
 
